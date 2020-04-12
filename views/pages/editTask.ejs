@@ -1,0 +1,151 @@
+<body>
+  <div class="main-content">
+    <% include ../partials/navbar %>
+    <div class="header pb-8 pt-5">
+      <div class="container-fluid">
+        <div class="header-body">
+        </div>
+      </div>
+    </div>
+    <div class="container-fluid mt--8">
+      <div class="row">
+        <div class="col">
+          <div class="card-wrapper">
+            <div class="card text-center m-auto" style="width: 500px;">
+              <div class="card-header">
+                <h3 class="mb-0">Modification de la tâche</h3>
+              </div>
+              <div class="card-body">
+                <form class="needs-validation" novalidate="" id="editTask">
+                  <div class="form-row">
+                    <div class="col-md-12">
+                      <div class="form-group">
+                        <label class="form-control-label" for="title">Titre</label>
+                        <input type="text" class="form-control" name="title" id="title" placeholder="Titre" required="">
+                      </div>
+                    </div>
+                  </div>
+                  <div class="row input-daterange" id="datepicker">
+                    <div class="col-md-5 mb-3">
+                      <input type="text" class="form-control" name="dateBegin" id="dateBegin" placeholder="Date de début" />
+                    </div>
+                    <span class="col-md-2 add-on">à</span>
+                    <div class="col-md-5 mb-3">
+                      <input type="text" class="form-control" name="dateEnd" id="dateEnd" placeholder="Date de fin" />
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="col-md-6 mb-3">
+                      <div class="form-group">
+                        <label class="form-control-label" for="statut">Status</label>
+                        <select class="form-control" name="statut" id="statut" required="">
+                          <option>Non précisé</option>
+                          <option>Une tâche est requise</option>
+                          <option>En cours</option>
+                          <option>Achevée</option>
+                          <option>Annulée</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                      <div class="form-group">
+                        <label class="form-control-label" for="tags">Tags</label>
+                        <select class="form-control" id="selectTags" name="tags" required="" multiple="">
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                  <button class="btn btn-primary" type="button" id="submitButton">Modifier</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <% include ../partials/footer %>
+    </div>
+  </div>
+  <% include ../partials/scripts %>
+  <script>
+    const apiURL = 'http://localhost:5000';
+
+    /*
+    * Fonction permettant le requetage http de données en asynchrone
+    */
+    function httpAsync(url, method, callback) {
+      const xmlHttp = new XMLHttpRequest(); //Objet pour demander des données à un serveur.
+      xmlHttp.onreadystatechange = function () { //quand le statut de l'objet XMLHttpRequest change
+        if (xmlHttp.readyState === 4 && xmlHttp.status === 200){ // si réponse prête
+          callback(xmlHttp.responseText); // action à être effectuée
+        }
+      };
+      xmlHttp.open(method, url, true); // Spécifie la requête (methode, url, asynchone)
+      xmlHttp.send(null); //envoi
+    }
+
+    //Appel de httpAsync pour récupérer toutes les catégories à afficher
+    httpAsync(apiURL + '/tags', 'GET', function (callback) {
+      let response = JSON.parse(callback);
+      if (response.success === 'true') {
+        response.tags.forEach(tag => {
+          selectTags.append(new Option(tag.title, tag.title)); // modif du DOM
+        });
+      } else {
+        alert(response.message);
+      }
+    });
+
+    //Appel de httpAsync pour récuperer la tâche grace à son id
+    let url = new URL(window.location.href);
+    const id = Object.freeze(url.searchParams.get("id"));
+    httpAsync(apiURL + '/task/' + id, 'GET', function (callback) {
+      let response = JSON.parse(callback);
+      if (response.success === 'true') {
+        //Remplie les champs avec les valeurs actuelles des attributs
+        $('#title').val(response.task.title);
+        $('#dateBegin').val(response.task.dateBegin);
+        $('#dateEnd').val(response.task.dateEnd);
+        $('#statut').val(response.task.statut);
+        $.each(response.task.tags.toString().split(","), function (key, value) {
+          let tagValue = value.charAt(0).toUpperCase() + value.slice(1);
+          $("#selectTags option[value='" + tagValue + "']").prop("selected", true);
+        });
+      } else {
+        alert(response.message);
+      }
+    });
+
+    /*
+    * Au clic sur le bouton de validation, on fait une requete vers l'api +/task/id en PUT.
+    * Le routeur de l'API redirigera vers la fonction de modification.
+    */
+    $('#submitButton').click(function () {
+      $.ajax({
+        url: apiURL + '/task/' + id,
+        type: 'PUT',
+        dataType: 'json',
+        data: $('form#editTask').serialize(),
+        success: function (data) {
+          window.location.replace("/");
+        },
+        error: function (data) {
+          alert(data.responseJSON.message);
+        }
+      });
+    });
+
+    // Sélecteur de dates
+    $('.input-daterange').datepicker({
+      format: "dd/mm/yyyy",
+      todayBtn: "linked",
+      todayHighlight: true
+    });
+
+    // Remplace le fonctionnement par défaut du selecteur html
+    $('#selectTags').on('mousedown', 'option', function(e) {
+      e.preventDefault();
+      $(this).prop('selected', !$(this).prop('selected'));
+      return false;
+    });
+  </script>
+</body>

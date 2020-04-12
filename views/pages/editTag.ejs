@@ -1,0 +1,88 @@
+<body>
+  <div class="main-content">
+    <% include ../partials/navbar %>
+    <div class="header pb-8 pt-5">
+      <div class="container-fluid">
+        <div class="header-body">
+        </div>
+      </div>
+    </div>
+    <div class="container-fluid mt--8">
+      <div class="row">
+        <div class="col">
+          <div class="card-wrapper">
+            <div class="card text-center m-auto" style="width: 500px;">
+              <div class="card-header">
+                <h3 class="mb-0">Modification de la catégorie</h3>
+              </div>
+              <div class="card-body">
+                <form class="needs-validation" novalidate="" id="editTag">
+                  <div class="form-row">
+                    <div class="col-md-12">
+                      <div class="form-group">
+                        <label class="form-control-label" for="title">Titre</label>
+                        <input type="text" class="form-control" name="title" id="title" placeholder="Titre" required="">
+                      </div>
+                    </div>
+                  </div>
+                  <button class="btn btn-primary" type="button" id="submitButton">Modifier</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <% include ../partials/footer %>
+    </div>
+  </div>
+  <% include ../partials/scripts %>
+  <script>
+    const apiURL = 'http://localhost:5000';
+
+    /*
+    * Fonction permettant le requetage http de données en asynchrone
+    */
+    function httpAsync(url, method, callback) {
+      const xmlHttp = new XMLHttpRequest(); //Objet pour demander des données à un serveur.
+      xmlHttp.onreadystatechange = function () { //quand le statut de l'objet XMLHttpRequest change
+        if (xmlHttp.readyState === 4 && xmlHttp.status === 200){ // si réponse prête
+          callback(xmlHttp.responseText); // action à être effectuée
+        }
+      };
+      xmlHttp.open(method, url, true); // Spécifie la requête (methode, url, asynchone)
+      xmlHttp.send(null); //envoi
+    }
+
+    //Appel de httpAsync pour récuperer la catégorie grace à son id
+    let url = new URL(window.location.href);
+    const id = Object.freeze(url.searchParams.get("id"));
+    httpAsync(apiURL + '/tag/' + id, 'GET', function (callback) {
+      let response = JSON.parse(callback);
+      if (response.success === 'true') {
+        //Remplie le champ avec la valeur actuelle de l'attribut
+        $('#title').val(response.tag.title);
+      } else {
+        alert(response.message);
+      }
+    });
+
+    /*
+    * Au clic sur le bouton de validation, on fait une requete vers l'api +/tag/id en PUT.
+    * Le routeur de l'API redirigera vers la fonction de modification.
+    */
+    $('#submitButton').click(function () {
+      $.ajax({
+        url: apiURL + '/tag/' + id,
+        type: 'PUT',
+        dataType: 'json',
+        data: $('form#editTag').serialize(),
+        success: function (data) {
+          window.location.replace("/");
+        },
+        error: function (data) {
+          alert(data.responseJSON.message);
+        }
+      });
+    });
+  </script>
+</body>

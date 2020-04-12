@@ -1,0 +1,220 @@
+<body>
+  <div class="main-content">
+    <% include ../partials/navbar %>
+    <div class="header pb-8 pt-5">
+      <div class="container-fluid">
+        <div class="header-body">
+        </div>
+      </div>
+    </div>
+    <div class="m-2 mt--8 d-flex justify-content-around">
+      <div class="card h-100">
+        <div class="card-header">
+          <h3 class="mb-0 text-center">Liste des Tâches</h3>
+        </div>
+        <div class="table-responsive p-2 d-flex justify-content-between">
+          <form class="needs-validation text-center mr-2" style="min-width: 200px;">
+            <h4>Filtrer les tâches</h4>
+            <label class="form-control-label text-left" for="statut">Statuts</label>
+            <select class="form-control mr-4 statutFilter" name="statut" multiple>
+             <option value="non_precise">Non précisé</option>
+             <option value="tache_requise">Une tâche est requise</option>
+             <option value="en_cours">En cours</option>
+             <option value="achevee">Achevée</option>
+             <option value="annulee">Annulée</option>
+           </select>
+           <label class="form-control-label text-left" for="tags">Catégories</label>
+           <select class="form-control tagFilter" name="tags" multiple>
+           </select>
+           <label for="expired" class="form-control-label">Tâches arivées à échéance</label>
+           <input type="checkbox" name="expired" id="expired">
+           <button class="btn btn-primary btn-sm" type="button" id="submitButton">Valider</button>
+         </form>
+         <table class="table align-items-center table-flush" id="tableTasks">
+          <thead class="thead-light">
+            <tr>
+              <th scope="col">Titre</th>
+              <th scope="col">Date de début</th>
+              <th scope="col">Date de fin</th>
+              <th scope="col">Statut</th>
+              <th scope="col">Catégories</th>
+              <th scope="col"></th>
+            </tr>
+          </thead>
+          <tbody class="list">
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card h-100">
+      <div class="card-header">
+        <h3 class="mb-0 text-center">Liste des Catégories</h3>
+      </div>
+      <div class="table-responsive p-2">
+        <table class="table align-items-center table-flush" id="tableTags">
+          <thead class="thead-light">
+            <tr>
+              <th scope="col" class="sort" data-sort="name">Titre</th>
+              <th scope="col"></th>
+            </tr>
+          </thead>
+          <tbody>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <% include ../partials/footer %>
+</div>
+<% include ../partials/scripts %>
+<script>
+  const apiURL = 'http://localhost:5000';
+
+    /*
+    * Fonction permettant le requetage http de données en asynchrone
+    */
+    function httpAsync(url, method, callback) {
+      const xmlHttp = new XMLHttpRequest(); //Objet pour demander des données à un serveur.
+      xmlHttp.onreadystatechange = function () { //quand le statut de l'objet XMLHttpRequest change
+        if (xmlHttp.readyState === 4 && xmlHttp.status === 200){ // si réponse prête
+          callback(xmlHttp.responseText); // action à être effectuée
+        }
+      };
+      xmlHttp.open(method, url, true); // Spécifie la requête (methode, url, asynchone)
+      xmlHttp.send(null); //envoi
+    }
+
+    /*
+    * Fonction permettant d'afficher les tâches car c'est nécessaire :
+    * - à l'ouverture de la page
+    * - à chaque clic sur le bouton de validation des filtres
+    */
+    function fillTaskTable(tasks) {
+      $("#tableTasks > tbody").children().remove();
+      tasks.forEach(task => {
+        let title = "<td>" + task.title + "</td>";
+        let dateBegin = "<td>" + task.dateBegin + "</td>";
+        let dateEnd = "<td>" + task.dateEnd + "</td>";
+        let statut = "<td>" + task.statut + "</td>";
+        let tags = "<td>" + task.tags + "</td>";
+        let actions = `<td class="text-right"><button class="btn btn-sm editTask" data-id="${task._id}" title="Modification"><i class="fas fa-edit text-warning"></i></button><button class="btn btn-sm deleteTask" data-id="${task._id}" title="Suppression"><i class="fas fa-times text-danger"></i></button></td>`;
+        $("#tableTasks > tbody").append("<tr style='max-width: 150px;'>" + title + dateBegin + dateEnd + statut + tags + actions + "</tr>");
+      });
+      $("#tableTasks > tbody").append(`<tr><td><button class="btn btn-sm addTask" title="Ajouter"><i class="fas fa-plus text-primary"></i></button></td><td class="text-right"></td></tr>`);
+    }
+
+    //Appel de httpAsync pour récupérer toutes les tâches à afficher
+    httpAsync(apiURL + '/tasks', 'GET', function (callback) {
+      let response = JSON.parse(callback);
+      if (response.success === 'true') {
+        fillTaskTable(response.tasks); //Remplie la table des tâches
+      } else {
+        alert(response.message);
+      }
+
+      /*
+      * Au clic sur le bouton de suppression, on fait une requete vers l'api +/task/id en DELETE.
+      * Le routeur de l'API redirigera vers la fonction de suppression.
+      * Utilisation de on() et non de clique() pour pouvoir gérer des élements rajouter au DOM de facon dynamique
+      */
+      $('.list').on('click', '.deleteTask', function () {
+        let id = $(this).data('id');
+        let line = $(this).parent().parent();
+        const apiURLDelete = apiURL + '/task/' + id;
+        httpAsync(apiURLDelete, 'DELETE', function (callback) {
+          let response = JSON.parse(callback);
+          if (response.success === 'true') {
+            line.remove(); //suppression de la ligne dans le front si c'est correctement supprimé dans la bdd
+          }
+        });
+      });
+
+      /*
+      * Au clic sur le bouton pour modifier une tâche, on redirige pour que le routeur puisse render la page de modification
+      */
+      $('.list').on('click', '.editTask', function () {
+        const id = $(this).data('id');
+        window.location.href = '/update-task?id=' + id;
+      });
+
+      /*
+      * Au clic sur le bouton pour ajouter une tâche, on redirige pour que le routeur puisse render la page de création
+      */
+      $('.list').on('click', '.addTask', function () {
+        window.location.href = '/add-task';
+      });
+    });
+
+    //Appel de httpAsync pour récupérer toutes les catégories à afficher
+    httpAsync(apiURL + '/tags', 'GET', function (callback) {
+      let response = JSON.parse(callback);
+      if (response.success === 'true') {
+        response.tags.forEach(tag => {
+          let title = "<td>" + tag.title + "</td>";
+          let actions = `<td class="text-right"><button class="btn btn-sm editTag" data-id="${tag._id}" title="Modification"><i class="fas fa-edit text-warning"></i></button><button class="btn btn-sm deleteTag" data-id="${tag._id}" title="Suppression"><i class="fas fa-times text-danger"></i></button></td>`;
+          // Modification du DOM
+          //les catégories dans les filtres
+          $(".tagFilter").append("<option>" + title + "</option>");
+          //la table des catégories avec les boutons de modification et de suppression
+          $("#tableTags > tbody").append("<tr>" + title + actions + "</tr>");
+        });
+        //ajout du bouton d'ajout dans le DOM à la fin
+        $("#tableTags > tbody").append('<tr><td><button class="btn btn-sm addTag" title="Ajouter"><i class="fas fa-plus text-primary"></i></button></td><td class="text-right"></td></tr>');
+      } else {
+        alert(response.message);
+      }
+
+      /*
+      * Au clic sur le bouton de suppression, on fait une requete vers l'api +/tag/id en DELETE.
+      * Le routeur de l'API redirigera vers la fonction de suppression.
+      */
+      $('.deleteTag').click( function () {
+        let id = $(this).data('id');
+        let line = $(this).parent().parent();
+        const apiURLDelete = apiURL + '/tag/' + id;
+        httpAsync(apiURLDelete, 'DELETE', function (callback) {
+          let response = JSON.parse(callback);
+          if (response.success === 'true') {
+            line.remove(); //suppression de la ligne dans le front si c'est correctement supprimé dans la bdd
+          }
+        });
+      });
+
+      /*
+      * Au clic sur le bouton pour modifier une catégorie, on redirige pour que le routeur puisse render la page de modification
+      */
+      $('.editTag').click( function () {
+        const id = $(this).data('id');
+        window.location.href = '/update-tag?id=' + id;
+      });
+
+      /*
+      * Au clic sur le bouton pour ajouter une catégorie, on redirige pour que le routeur puisse render la page de création
+      */
+      $('.addTag').click( function () {
+        window.location.href = '/add-tag';
+      });
+    });
+
+    /*
+    * Au clic sur le bouton de validation des filtres, on fait une requete vers l'api +/tasks? + les filtres en GET.
+    * Le routeur de l'API redirigera vers la fonction de récupération qui va gérer les filtres.
+    */
+    $("#submitButton").click( function() {
+      let apiURLfilter = apiURL + '/tasks?' + $('form').serialize();
+      httpAsync(apiURLfilter, 'GET', function (callback) {
+        let response = JSON.parse(callback);
+        if (response.success === 'true') {
+          fillTaskTable(response.tasks); //Remplie la table des tâches filtrée
+        }
+      });
+    });
+
+    // Remplace le fonctionnement par défaut du selecteur html
+    $('select').on('mousedown', 'option',function(e) {
+      e.preventDefault();
+      $(this).prop('selected', !$(this).prop('selected'));
+      return false;
+    });
+  </script>
+</body>
